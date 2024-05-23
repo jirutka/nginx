@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_http_header_count.hh>
 
 
 static void ngx_http_wait_request_handler(ngx_event_t *ev);
@@ -565,6 +566,7 @@ ngx_http_alloc_request(ngx_connection_t *c)
     ngx_http_connection_t      *hc;
     ngx_http_core_srv_conf_t   *cscf;
     ngx_http_core_main_conf_t  *cmcf;
+    ngx_http_header_count_t    *hc_ctx;
 
     hc = c->data;
 
@@ -625,6 +627,13 @@ ngx_http_alloc_request(ngx_connection_t *c)
         ngx_destroy_pool(r->pool);
         return NULL;
     }
+
+    hc_ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_header_count_t));
+    if (hc_ctx == NULL) {
+        ngx_destroy_pool(r->pool);
+        return NULL;
+    }
+    ngx_http_set_ctx(r, hc_ctx, ngx_http_header_count_module);
 
 #if (NGX_HTTP_SSL)
     if (c->ssl && !c->ssl->sendfile) {
@@ -1400,6 +1409,8 @@ ngx_http_process_request_headers(ngx_event_t *rev)
     ngx_http_request_t         *r;
     ngx_http_core_srv_conf_t   *cscf;
     ngx_http_core_main_conf_t  *cmcf;
+    ngx_http_header_count_conf_t *hccf;
+    ngx_http_header_count_t    *hc_ctx;
 
     c = rev->data;
     r = c->data;
@@ -1473,6 +1484,10 @@ ngx_http_process_request_headers(ngx_event_t *rev)
         rc = ngx_http_parse_header_line(r, r->header_in,
                                         cscf->underscores_in_headers);
 
+
+        hccf = ngx_http_get_module_srv_conf(r, ngx_http_header_count_module);
+        hc_ctx = ngx_http_get_module_ctx(r, ngx_http_header_count_module);
+
         if (rc == NGX_OK) {
 
             r->request_length += r->header_in->pos - r->header_name_start;
@@ -1489,6 +1504,15 @@ ngx_http_process_request_headers(ngx_event_t *rev)
             }
 
             /* a header line has been parsed successfully */
+
+            if (hc_ctx->count++ >= hccf->max_headers) {
+                r->lingering_close = 1;
+                ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                              "client sent too many header lines");
+                ngx_http_finalize_request(r,
+                                          NGX_HTTP_REQUEST_HEADER_TOO_LARGE);
+                break;
+            }
 
             h = ngx_list_push(&r->headers_in.headers);
             if (h == NULL) {
