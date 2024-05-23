@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_http_header_count.hh>
 
 
 typedef struct {
@@ -37,6 +38,10 @@ static char *ngx_http_core_merge_srv_conf(ngx_conf_t *cf,
     void *parent, void *child);
 static void *ngx_http_core_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_core_merge_loc_conf(ngx_conf_t *cf,
+    void *parent, void *child);
+
+static void *ngx_http_header_count_create_srv_conf(ngx_conf_t *cf);
+static char *ngx_http_header_count_merge_srv_conf(ngx_conf_t *cf,
     void *parent, void *child);
 
 static char *ngx_http_core_server(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -801,6 +806,48 @@ ngx_module_t  ngx_http_core_module = {
     NGX_MODULE_V1,
     &ngx_http_core_module_ctx,             /* module context */
     ngx_http_core_commands,                /* module directives */
+    NGX_HTTP_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+static ngx_command_t  ngx_http_header_count_commands[] = {
+
+    { ngx_string("max_headers"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_num_slot,
+      NGX_HTTP_SRV_CONF_OFFSET,
+      offsetof(ngx_http_header_count_conf_t, max_headers),
+      NULL },
+
+      ngx_null_command
+};
+
+static ngx_http_module_t  ngx_http_header_count_module_ctx = {
+    NULL,                                  /* preconfiguration */
+    NULL,                                  /* postconfiguration */
+
+    NULL,                                  /* create main configuration */
+    NULL,                                  /* init main configuration */
+
+    ngx_http_header_count_create_srv_conf, /* create server configuration */
+    ngx_http_header_count_merge_srv_conf,  /* merge server configuration */
+
+    NULL,                                  /* create location configuration */
+    NULL                                   /* merge location configuration */
+};
+
+
+ngx_module_t ngx_http_header_count_module = {
+    NGX_MODULE_V1,
+    &ngx_http_header_count_module_ctx,     /* module context */
+    ngx_http_header_count_commands,        /* module directives */
     NGX_HTTP_MODULE,                       /* module type */
     NULL,                                  /* init master */
     NULL,                                  /* init module */
@@ -3650,6 +3697,32 @@ ngx_http_core_create_loc_conf(ngx_conf_t *cf)
 #endif
 
     return clcf;
+}
+
+
+static void *
+ngx_http_header_count_create_srv_conf(ngx_conf_t *cf)
+{
+    ngx_http_header_count_conf_t  *hccf;
+
+    hccf = ngx_pcalloc(cf->pool, sizeof(ngx_http_header_count_conf_t));
+    if (hccf == NULL) {
+        return NULL;
+    }
+
+    hccf->max_headers = NGX_CONF_UNSET_UINT;
+    return hccf;
+}
+
+static char *
+ngx_http_header_count_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_header_count_conf_t *prev = parent;
+    ngx_http_header_count_conf_t *conf = child;
+
+    ngx_conf_merge_uint_value(conf->max_headers, prev->max_headers, 1000);
+
+    return NGX_CONF_OK;
 }
 
 

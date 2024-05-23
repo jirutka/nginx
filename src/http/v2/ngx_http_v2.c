@@ -9,6 +9,7 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 #include <ngx_http_v2_module.h>
+#include <ngx_http_header_count.hh>
 
 
 /* errors */
@@ -1712,6 +1713,8 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
     ngx_http_v2_header_t       *header;
     ngx_http_core_srv_conf_t   *cscf;
     ngx_http_core_main_conf_t  *cmcf;
+    ngx_http_header_count_conf_t *hccf;
+    ngx_http_header_count_t    *hc_ctx;
 
     static ngx_str_t cookie = ngx_string("cookie");
 
@@ -1817,6 +1820,17 @@ ngx_http_v2_state_process_header(ngx_http_v2_connection_t *h2c, u_char *pos,
         }
 
     } else {
+        cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+        hccf = ngx_http_get_module_srv_conf(r, ngx_http_header_count_module);
+        hc_ctx = ngx_http_get_module_ctx(r, ngx_http_header_count_module);
+
+        if (hc_ctx->count++ >= hccf->max_headers) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                          "client sent too many header lines");
+            ngx_http_finalize_request(r, NGX_HTTP_REQUEST_HEADER_TOO_LARGE);
+            goto error;
+        }
+
         h = ngx_list_push(&r->headers_in.headers);
         if (h == NULL) {
             return ngx_http_v2_connection_error(h2c,

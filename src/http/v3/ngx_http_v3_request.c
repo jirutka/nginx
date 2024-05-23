@@ -8,6 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <ngx_http_header_count.hh>
 
 
 static void ngx_http_v3_init_request_stream(ngx_connection_t *c);
@@ -618,6 +619,8 @@ ngx_http_v3_process_header(ngx_http_request_t *r, ngx_str_t *name,
     ngx_http_header_t          *hh;
     ngx_http_core_srv_conf_t   *cscf;
     ngx_http_core_main_conf_t  *cmcf;
+    ngx_http_header_count_conf_t *hccf;
+    ngx_http_header_count_t    *hc_ctx;
 
     static ngx_str_t cookie = ngx_string("cookie");
 
@@ -665,6 +668,17 @@ ngx_http_v3_process_header(ngx_http_request_t *r, ngx_str_t *name,
         }
 
     } else {
+        cscf = ngx_http_get_module_srv_conf(r, ngx_http_core_module);
+        hccf = ngx_http_get_module_srv_conf(r, ngx_http_header_count_module);
+        hc_ctx = ngx_http_get_module_ctx(r, ngx_http_header_count_module);
+
+        if (hc_ctx->count++ >= hccf->max_headers) {
+            ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                          "client sent too many header lines");
+            ngx_http_finalize_request(r, NGX_HTTP_REQUEST_HEADER_TOO_LARGE);
+            return NGX_ERROR;
+        }
+
         h = ngx_list_push(&r->headers_in.headers);
         if (h == NULL) {
             ngx_http_close_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
