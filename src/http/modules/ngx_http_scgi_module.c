@@ -1052,6 +1052,7 @@ ngx_http_scgi_process_status_line(ngx_http_request_t *r)
 
     if (rc == NGX_ERROR) {
         u->process_header = ngx_http_scgi_process_header;
+        r->state = 0;
         return ngx_http_scgi_process_header(r);
     }
 
