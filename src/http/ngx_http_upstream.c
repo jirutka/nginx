@@ -8,7 +8,7 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-
+#include <ngx_http_request.hh>
 
 #if (NGX_HTTP_CACHE)
 static ngx_int_t ngx_http_upstream_cache(ngx_http_request_t *r,
@@ -3956,6 +3956,12 @@ ngx_http_upstream_thread_handler(ngx_thread_task_t *task, ngx_file_t *file)
 
     task->event.data = r;
     task->event.handler = ngx_http_upstream_thread_event_handler;
+
+    if (r->main->blocked >= NGX_HTTP_MAX_BLOCKED) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "too many operations pending");
+        return NGX_ERROR;
+    }
 
     if (ngx_thread_task_post(tp, task) != NGX_OK) {
         return NGX_ERROR;
