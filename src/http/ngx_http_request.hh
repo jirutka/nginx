@@ -1,0 +1,6 @@
+#ifndef _NGX_HTTP_REQUEST_HH_INCLUDED_
+#define _NGX_HTTP_REQUEST_HH_INCLUDED_
+
+#define NGX_HTTP_MAX_BLOCKED               250
+
+#endif /* _NGX_HTTP_REQUEST_HH_INCLUDED_ */
