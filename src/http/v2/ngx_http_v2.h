@@ -168,6 +168,8 @@ struct ngx_http_v2_connection_s {
     unsigned                         table_update:1;
     unsigned                         blocked:1;
     unsigned                         goaway:1;
+
+    size_t                           send_queued;
 };
 
 
